@@ -1,70 +1,153 @@
-# Getting Started with Create React App
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# Visual Web Scraper with Adjustable Layout
 
-## Available Scripts
+## Overview
+The **Visual Web Scraper** is a Python and React-based application designed to simplify web scraping with an interactive interface. Users can visually select elements from a webpage, generate corresponding selectors (XPath, CSS, or Attribute), and automatically generate Python code to scrape those elements.
 
-In the project directory, you can run:
+This tool leverages **Selenium** for rendering dynamic web pages and supports dynamic interaction through an embedded preview pane.
 
-### `npm start`
+---
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Features
+- Visual webpage preview using Selenium.
+- Selector generation for CSS, XPath, or attributes.
+- Automated Python code generation for selected elements.
+- Adjustable interface layout with an intuitive design.
+- Handles dynamic, JavaScript-heavy web pages.
+- Interactive element selection and highlighting.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+---
 
-### `npm test`
+## Tech Stack
+- **Backend**: Python, Flask, Selenium
+- **Frontend**: React.js
+- **Dependencies**:
+  - Flask
+  - Selenium
+  - fake-useragent
+  - React.js
+  - WebDriver (e.g., ChromeDriver)
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+---
 
-### `npm run build`
+## Prerequisites
+Before setting up the project, ensure you have the following installed:
+1. **Python 3.8+**
+2. **Node.js** (for the React frontend)
+3. **Google Chrome** (latest version)
+4. **ChromeDriver** matching your Chrome version ([Download here](https://sites.google.com/chromium.org/driver/))
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+---
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Installation
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Backend Setup
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/bobykhani/visual_scraper.git
+   cd visual_scraper
+   ```
 
-### `npm run eject`
+2. Set up a virtual environment (optional but recommended):
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+4. Ensure ChromeDriver is installed and added to your PATH. Test the installation:
+   ```bash
+   chromedriver --version
+   ```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+5. Start the Flask backend:
+   ```bash
+   python app.py
+   ```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Frontend Setup
+1. Navigate to the `frontend` directory:
+   ```bash
+   cd frontend
+   ```
 
-## Learn More
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+3. Start the React development server:
+   ```bash
+   npm start
+   ```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+---
 
-### Code Splitting
+## Usage
+1. Open the frontend in your browser (usually at `http://localhost:3000`).
+2. Enter the URL of the webpage you want to scrape.
+3. Click **"Preview Website"** to load the webpage in the preview pane.
+4. Select a **Selector Type** (XPath, CSS Selector, or Attribute).
+5. Use the interactive preview to highlight and select elements.
+6. Add the element(s) to the **Element Table**.
+7. Click **"Generate Python Code"** to generate scraping code for the selected elements.
+8. Copy the generated code and use it in your Python projects.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+---
 
-### Analyzing the Bundle Size
+## Demo
+*Screenshot of the tool interface (optional)*
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+---
 
-### Making a Progressive Web App
+## Folder Structure
+```
+visual_scraper/
+├── app.py               # Flask backend for Selenium
+├── requirements.txt     # Python dependencies
+├── frontend/            # React frontend code
+│   ├── src/             # Source files
+│   ├── public/          # Public assets
+│   └── package.json     # Frontend dependencies
+└── README.md            # Project documentation
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+---
 
-### Advanced Configuration
+## Roadmap
+- [ ] Add support for proxies.
+- [ ] Integrate with a database for storing scraping configurations.
+- [ ] Implement browser options for non-Chrome users.
+- [ ] Add support for API-based scraping workflows.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+---
 
-### Deployment
+## Contributing
+Contributions are welcome! If you'd like to improve this project:
+1. Fork the repository.
+2. Create a new branch:
+   ```bash
+   git checkout -b feature-name
+   ```
+3. Commit your changes:
+   ```bash
+   git commit -m "Add feature-name"
+   ```
+4. Push to your branch:
+   ```bash
+   git push origin feature-name
+   ```
+5. Open a pull request.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+---
 
-### `npm run build` fails to minify
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## Contact
+If you have any questions or feedback, feel fre to reach out:
+
+- **Email**: bobykhani.data@gmail.com
+- **GitHub**: [bobykhani](https://github.com/bobykhani)
