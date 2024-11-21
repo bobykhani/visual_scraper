@@ -1,5 +1,8 @@
 
-# Visual Web Scraper with Adjustable Layout
+# Visual Web Scraper
+
+![Alt Text](img/1.png)
+
 
 ## Overview
 The **Visual Web Scraper** is a Python and React-based application designed to simplify web scraping with an interactive interface. Users can visually select elements from a webpage, generate corresponding selectors (XPath, CSS, or Attribute), and automatically generate Python code to scrape those elements.
