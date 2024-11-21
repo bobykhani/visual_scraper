@@ -1,0 +1,43 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.header {
+  padding: 10px;
+  background-color: #f4f4f4;
+  text-align: center;
+}
+
+.content {
+  display: flex;
+  flex: 1;
+}
+
+.left-panel {
+  width: 30%;
+  padding: 10px;
+  border-right: 1px solid #ccc;
+  overflow-y: auto;
+}
+
+.right-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.iframe-container,
+.table-container,
+.generated-code {
+  flex: 1;
+  padding: 10px;
+  overflow: auto;
+}
+
+.divider {
+  height: 5px;
+  background-color: #ccc;
+  cursor: row-resize;
+}
