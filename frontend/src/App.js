@@ -4,7 +4,7 @@ import "./App.css";
 function App() {
   const [url, setUrl] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
-  const [selectorType, setSelectorType] = useState(""); // State for selector type
+  const [selectorType, setSelectorType] = useState("CSS_SELECTOR"); // Default selector type
   const [rows, setRows] = useState([]);
   const [currentRowIndex, setCurrentRowIndex] = useState(null);
   const [generatedCode, setGeneratedCode] = useState("");
@@ -56,6 +56,11 @@ function App() {
       alert("Preview the website first before selecting elements.");
       return;
     }
+    // Update the selectorType for the row dynamically
+    const updatedRows = [...rows];
+    updatedRows[rowIndex].selectorType = selectorType;
+    setRows(updatedRows);
+
     setCurrentRowIndex(rowIndex);
     iframe.contentWindow.postMessage(
       { action: "initiateSelection", selectorType },
@@ -64,7 +69,12 @@ function App() {
   };
 
   const addRow = () => {
-    setRows([...rows, { name: "", selector: "" }]);
+    setRows([...rows, { name: "", selector: "", selectorType }]);
+  };
+
+  const removeRow = (index) => {
+    const updatedRows = rows.filter((_, i) => i !== index);
+    setRows(updatedRows);
   };
 
   const updateRowName = (index, value) => {
@@ -73,12 +83,26 @@ function App() {
     setRows(updatedRows);
   };
 
+  const ensureAbsoluteXPath = (xpath) => {
+    if (xpath.startsWith("/") && !xpath.startsWith("/html")) {
+      return `/html${xpath}`;
+    }
+    if (!xpath.startsWith("/")) {
+      return `/html/${xpath}`;
+    }
+    return xpath;
+  };
+  
+  const ensureClassNameAsCssSelector = (className) => {
+    return className.trim().replace(/\s+/g, "."); // Replace spaces with dots
+  };
+  
   const generatePythonCode = () => {
     if (!url || rows.length === 0) {
       alert("Please enter a URL and add at least one element to generate code.");
       return;
     }
-
+  
     const scraperCode = `
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -103,9 +127,21 @@ try:
 
     # Extract data using selectors
     data = {}
-    ${rows.map(row => `
-    elements = driver.find_elements(By.${selectorType.toUpperCase()}, "${row.selector}")
-    data["${row.name}"] = [el.text for el in elements]`).join("\n")}
+    ${rows
+      .map((row) => {
+        let selector = row.selector;
+        if (row.selectorType === "XPATH") {
+          // Ensure absolute XPath
+          selector = ensureAbsoluteXPath(row.selector);
+        } else if (row.selectorType === "CLASS_NAME") {
+          // Convert class name with spaces into valid CSS selector
+          selector = ensureClassNameAsCssSelector(row.selector);
+        }
+        return `
+    elements = driver.find_elements(By.${row.selectorType}, "${selector}")
+    data["${row.name}"] = [el.text for el in elements]`;
+      })
+      .join("\n")}
 
     # Print extracted data
     for key, value in data.items():
@@ -113,10 +149,11 @@ try:
 
 finally:
     driver.quit()
-`;
-
-    setGeneratedCode(scraperCode);
-  };
+                          `;
+                            setGeneratedCode(scraperCode);
+                          };
+  
+  
 
   const saveToFile = () => {
     if (!generatedCode) {
@@ -175,6 +212,7 @@ finally:
                 type="radio"
                 name="selectorType"
                 value="CSS_SELECTOR"
+                checked={selectorType === "CSS_SELECTOR"}
                 onChange={(e) => setSelectorType(e.target.value)}
               />
               CSS Selector
@@ -185,6 +223,7 @@ finally:
                 type="radio"
                 name="selectorType"
                 value="XPATH"
+                checked={selectorType === "XPATH"}
                 onChange={(e) => setSelectorType(e.target.value)}
               />
               XPath
@@ -195,6 +234,7 @@ finally:
                 type="radio"
                 name="selectorType"
                 value="CLASS_NAME"
+                checked={selectorType === "CLASS_NAME"}
                 onChange={(e) => setSelectorType(e.target.value)}
               />
               Class Name
@@ -205,6 +245,7 @@ finally:
                 type="radio"
                 name="selectorType"
                 value="ID"
+                checked={selectorType === "ID"}
                 onChange={(e) => setSelectorType(e.target.value)}
               />
               ID
@@ -215,6 +256,7 @@ finally:
                 type="radio"
                 name="selectorType"
                 value="TAG_NAME"
+                checked={selectorType === "TAG_NAME"}
                 onChange={(e) => setSelectorType(e.target.value)}
               />
               Tag Name
@@ -246,31 +288,32 @@ finally:
             Copy to Clipboard
           </button>
           <button
-            style={{ width: "100%", padding: "10px", marginTop: "10px" }}
+            style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
             disabled
           >
             Schedule Trigger
           </button>
           <button
-            style={{ width: "100%", padding: "10px", marginTop: "10px" }}
+            style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
             disabled
           >
             Run Now
           </button>
           <button
-            style={{ width: "100%", padding: "10px", marginTop: "10px" }}
+            style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
             disabled
           >
             Logs
           </button>
           <button
-            style={{ width: "100%", padding: "10px", marginTop: "10px" }}
+            style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
             disabled
           >
             Connect to Database
           </button>
           <button
-            style={{ width: "100%", padding: "10px", marginTop: "10px" }}
+            style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
+            disabled
           >
             Logout
           </button>
@@ -290,11 +333,12 @@ finally:
           </div>
           <div className="table-container">
             <h2>Element Table</h2>
-            <table>
+            <table className="styled-table">
               <thead>
                 <tr>
                   <th>Name</th>
                   <th>Selector</th>
+                  <th>Selector Type</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -307,17 +351,31 @@ finally:
                         value={row.name}
                         onChange={(e) => updateRowName(index, e.target.value)}
                         placeholder="Element Name"
+                        className="input-field"
                       />
                     </td>
-                    <td>{row.selector}</td>
+                    <td>{row.selector || <span className="placeholder-text">No Selector</span>}</td>
+                    <td>{row.selectorType}</td>
                     <td>
-                      <button onClick={() => enableElementSelection(index)}>Select</button>
+                      <button
+                        onClick={() => enableElementSelection(index)}
+                        className="select-button"
+                      >
+                        Select
+                      </button>
+                      <button
+                        onClick={() => removeRow(index)}
+                        className="remove-button"
+                      >
+                        Remove Row
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
           <div className="generated-code">
             <h2>Generated Python Code</h2>
             <pre>{generatedCode || "Click 'Generate Python Code' to see the output here."}</pre>

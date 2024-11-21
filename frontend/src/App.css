@@ -110,3 +110,103 @@
   border-radius: 5px;
   overflow: auto;
 }
+.table-container {
+  padding: 20px;
+  border-radius: 8px;
+  background-color: #f9f9f9; /* Light gray background */
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+.table-container h2 {
+  font-size: 24px;
+  margin-bottom: 10px;
+  color: #333;
+  text-align: center;
+}
+
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.styled-table th,
+.styled-table td {
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+.styled-table th {
+  background-color: #007bff; /* Header background */
+  color: white; /* Header text color */
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.styled-table tbody tr:nth-child(even) {
+  background-color: #f2f2f2; /* Zebra striping */
+}
+
+.styled-table tbody tr:hover {
+  background-color: #e9f5ff; /* Row hover effect */
+}
+
+.input-field {
+  width: 100%;
+  padding: 8px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: #fff;
+  box-shadow: inset 0px 1px 3px rgba(0, 0, 0, 0.1); /* Inner shadow */
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #007bff; /* Blue border on focus */
+  box-shadow: 0 0 5px rgba(0, 123, 255, 0.5); /* Focus glow */
+}
+
+.placeholder-text {
+  color: #999;
+  font-style: italic;
+}
+
+.select-button {
+  padding: 8px 12px;
+  font-size: 14px;
+  color: white;
+  background-color: #007bff; /* Button background */
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.select-button:hover {
+  background-color: #0056b3; /* Darker blue on hover */
+}
+
+.select-button:active {
+  background-color: #003f7f; /* Even darker on click */
+}
+.remove-button {
+  padding: 8px 12px;
+  font-size: 14px;
+  color: white;
+  background-color: #dc3545; /* Red background */
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 5px;
+  transition: background-color 0.3s ease;
+}
+
+.remove-button:hover {
+  background-color: #c82333; /* Darker red on hover */
+}
+
+.remove-button:active {
+  background-color: #a71d2a; /* Even darker red on click */
+}
