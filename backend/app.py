@@ -7,6 +7,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import logging
 from fake_useragent import UserAgent
+from playwright.sync_api import sync_playwright
+import requests
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})  # Adjust CORS as needed
@@ -20,129 +23,429 @@ def home():
 @app.route('/proxy', methods=['GET'])
 def proxy():
     url = request.args.get('url')
-    selector_type = request.args.get('selectorType', 'CSS_SELECTOR')  # Default to CSS_SELECTOR
+    tool = request.args.get('tool', 'selenium')  # Default to Selenium
+
     if not url:
         return "URL parameter is missing", 400
 
     try:
-        # Configure Selenium WebDriver
-        chrome_options = Options()
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--headless")  # Run in headless mode
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--window-size=1920,1080")
-        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        chrome_options.add_experimental_option("useAutomationExtension", False)
+        if tool == "selenium":
+            # Use Selenium to fetch the page
+            chrome_options = Options()
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--headless")  # Run in headless mode
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--window-size=1920,1080")
 
-        # Add user-agent
-        user_agent = UserAgent().random  # Random user agent
-        chrome_options.add_argument(f"user-agent={user_agent}")
+            driver = webdriver.Chrome(options=chrome_options)
+            driver.get(url)
 
-        driver = webdriver.Chrome(options=chrome_options)
-        driver.get(url)
-
-        # Wait until the page is fully loaded
-        WebDriverWait(driver, 10).until(
-            lambda d: d.execute_script("return document.readyState") == "complete"
-        )
-
-        # Inject JavaScript into the page
-        injected_script = f"""
-                            <script>
-                                console.log('Injected script is running with selectorType: {selector_type}');
+            # Get the page source
+            injected_script = f"""
+                                <script>
                                 window.addEventListener('message', function(event) {{
                                     if (event.data.action === 'initiateSelection') {{
-                                        const selectedType = event.data.selectorType; // Use this dynamically
-                                        document.body.style.cursor = 'crosshair';
+                                    const selectorType = event.data.selectorType;
 
-                                        document.addEventListener('mouseover', function(e) {{
-                                            e.target.style.outline = '2px solid red';
-                                        }});
+                                    document.body.style.cursor = 'crosshair';
 
-                                        document.addEventListener('mouseout', function(e) {{
-                                            e.target.style.outline = '';
-                                        }});
+                                    document.addEventListener('mouseover', function(e) {{
+                                        e.target.style.outline = '2px solid red';
+                                    }});
 
-                                        document.addEventListener('click', function(e) {{
-                                            e.preventDefault();
-                                            e.stopPropagation();
+                                    document.addEventListener('mouseout', function(e) {{
+                                        e.target.style.outline = '';
+                                    }});
 
-                                            const getSelector = (el) => {{
-                                                if (!el) return '';
-                                                if (selectedType === "CSS_SELECTOR") {{
-                                                    let stack = [];
-                                                    while (el.parentNode !== null) {{
-                                                        let sibCount = 0;
-                                                        let sibIndex = 0;
-                                                        for (let i = 0; i < el.parentNode.childNodes.length; i++) {{
-                                                            let sib = el.parentNode.childNodes[i];
-                                                            if (sib.nodeName === el.nodeName) {{
-                                                                if (sib === el) sibIndex = sibCount;
-                                                                sibCount++;
-                                                            }}
-                                                        }}
-                                                        let nodeName = el.nodeName.toLowerCase();
-                                                        if (el.id) {{
-                                                            stack.unshift(`${{nodeName}}#${{el.id}}`);
-                                                            break;
-                                                        }} else if (sibCount > 1) {{
-                                                            stack.unshift(`${{nodeName}}:nth-of-type(${{sibIndex + 1}})`);
-                                                        }} else {{
-                                                            stack.unshift(nodeName);
-                                                        }}
-                                                        el = el.parentNode;
-                                                    }}
-                                                    return stack.join(' > ');
-                                                }} else if (selectedType === "CLASS_NAME") {{
-                                                    return el.className || '';
-                                                }} else if (selectedType === "ID") {{
-                                                    return el.id || '';
-                                                }} else if (selectedType === "TAG_NAME") {{
-                                                    return el.tagName || '';
-                                                }} else if (selectedType === "XPATH") {{
-                                                    const getXPath = (el) => {{
-                                                        if (el.id !== '') {{
-                                                            return 'id("' + el.id + '")';
-                                                        }}
-                                                        if (el === document.body) {{
-                                                            return el.tagName.toLowerCase();
-                                                        }}
-                                                        let ix = 0;
-                                                        const siblings = el.parentNode.childNodes;
-                                                        for (let i = 0; i < siblings.length; i++) {{
-                                                            const sibling = siblings[i];
-                                                            if (sibling === el) {{
-                                                                return getXPath(el.parentNode) + '/' + el.tagName.toLowerCase() + '[' + (ix + 1) + ']';
-                                                            }}
-                                                            if (sibling.nodeType === 1 && sibling.tagName === el.tagName) {{
-                                                                ix++;
-                                                            }}
-                                                        }}
-                                                    }};
-                                                    return getXPath(el);
-                                                }}
-                                            }};
+                                    document.addEventListener('click', function(e) {{
+                                        e.preventDefault();
+                                        e.stopPropagation();
 
-                                            const selector = getSelector(e.target);
-                                            console.log('Computed selector:', selector);
+                                        let selector = '';
+                                        if (selectorType === 'CSS_SELECTOR') {{
+                                        selector = e.target.tagName.toLowerCase();
+                                        if (e.target.id) {{
+                                            selector += '#' + e.target.id;
+                                        }}
+                                        if (e.target.className) {{
+                                            selector += '.' + e.target.className.split(' ').join('.');
+                                        }}
+                                        }} else if (selectorType === 'XPATH') {{
+                                        const getXPath = (el) => {{
+                                            if (el.id) {{
+                                            return `//*[@id='${{el.id}}']`;
+                                            }}
+                                            if (el === document.body) {{
+                                            return '/html/body';
+                                            }}
+                                            let ix = 0;
+                                            const siblings = el.parentNode.childNodes;
+                                            for (let i = 0; i < siblings.length; i++) {{
+                                            const sibling = siblings[i];
+                                            if (sibling === el) {{
+                                                return getXPath(el.parentNode) + '/' + el.tagName.toLowerCase() + '[' + (ix + 1) + ']';
+                                            }}
+                                            if (sibling.nodeType === 1 && sibling.tagName === el.tagName) {{
+                                                ix++;
+                                            }}
+                                            }}
+                                        }};
+                                        selector = getXPath(e.target);
+                                        }}
 
-                                            window.parent.postMessage({{ type: 'SELECTOR_RESPONSE', selector, selectorType: selectedType }}, '*');
-                                            document.body.style.cursor = 'default';
-                                        }});
+                                        window.parent.postMessage(
+                                        {{
+                                            type: 'SELECTOR_RESPONSE',
+                                            selector,
+                                            selectorType
+                                        }},
+                                        '*'
+                                        );
+
+                                        document.body.style.cursor = 'default';
+                                        document.removeEventListener('mouseover', null);
+                                        document.removeEventListener('mouseout', null);
+                                        document.removeEventListener('click', null);
+                                    }});
                                     }}
                                 }});
-                            </script>
-                            """
+                                </script>
+                                """
+            rendered_html = driver.page_source.replace("</body>", f"{injected_script}</body>")
 
+            driver.quit()
 
-        # Inject the script into the page
-        rendered_html = driver.page_source.replace("</body>", f"{injected_script}</body>")
-        driver.quit()
+        elif tool == "playwright":
+            # Use Playwright to fetch the page
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.goto(url)
+                # Get the page source
+                injected_script = f"""
+                                <script>
+                                window.addEventListener('message', function(event) {{
+                                    if (event.data.action === 'initiateSelection') {{
+                                    const selectorType = event.data.selectorType;
+
+                                    document.body.style.cursor = 'crosshair';
+
+                                    document.addEventListener('mouseover', function(e) {{
+                                        e.target.style.outline = '2px solid red';
+                                    }});
+
+                                    document.addEventListener('mouseout', function(e) {{
+                                        e.target.style.outline = '';
+                                    }});
+
+                                    document.addEventListener('click', function(e) {{
+                                        e.preventDefault();
+                                        e.stopPropagation();
+
+                                        let selector = '';
+                                        if (selectorType === 'CSS_SELECTOR') {{
+                                        selector = e.target.tagName.toLowerCase();
+                                        if (e.target.id) {{
+                                            selector += '#' + e.target.id;
+                                        }}
+                                        if (e.target.className) {{
+                                            selector += '.' + e.target.className.split(' ').join('.');
+                                        }}
+                                        }} else if (selectorType === 'XPATH') {{
+                                        const getXPath = (el) => {{
+                                            if (el.id) {{
+                                            return `//*[@id='${{el.id}}']`;
+                                            }}
+                                            if (el === document.body) {{
+                                            return '/html/body';
+                                            }}
+                                            let ix = 0;
+                                            const siblings = el.parentNode.childNodes;
+                                            for (let i = 0; i < siblings.length; i++) {{
+                                            const sibling = siblings[i];
+                                            if (sibling === el) {{
+                                                return getXPath(el.parentNode) + '/' + el.tagName.toLowerCase() + '[' + (ix + 1) + ']';
+                                            }}
+                                            if (sibling.nodeType === 1 && sibling.tagName === el.tagName) {{
+                                                ix++;
+                                            }}
+                                            }}
+                                        }};
+                                        selector = getXPath(e.target);
+                                        }}
+
+                                        window.parent.postMessage(
+                                        {{
+                                            type: 'SELECTOR_RESPONSE',
+                                            selector,
+                                            selectorType
+                                        }},
+                                        '*'
+                                        );
+
+                                        document.body.style.cursor = 'default';
+                                        document.removeEventListener('mouseover', null);
+                                        document.removeEventListener('mouseout', null);
+                                        document.removeEventListener('click', null);
+                                    }});
+                                    }}
+                                }});
+                                </script>
+                                """
+                rendered_html = driver.page_source.replace("</body>", f"{injected_script}</body>")
+                browser.close()
+
+        elif tool == "beautifulsoup":
+            # Use BeautifulSoup to fetch the page
+            response = requests.get(url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+            # Get the page source
+            injected_script = f"""
+                                <script>
+                                window.addEventListener('message', function(event) {{
+                                    if (event.data.action === 'initiateSelection') {{
+                                    const selectorType = event.data.selectorType;
+
+                                    document.body.style.cursor = 'crosshair';
+
+                                    document.addEventListener('mouseover', function(e) {{
+                                        e.target.style.outline = '2px solid red';
+                                    }});
+
+                                    document.addEventListener('mouseout', function(e) {{
+                                        e.target.style.outline = '';
+                                    }});
+
+                                    document.addEventListener('click', function(e) {{
+                                        e.preventDefault();
+                                        e.stopPropagation();
+
+                                        let selector = '';
+                                        if (selectorType === 'CSS_SELECTOR') {{
+                                        selector = e.target.tagName.toLowerCase();
+                                        if (e.target.id) {{
+                                            selector += '#' + e.target.id;
+                                        }}
+                                        if (e.target.className) {{
+                                            selector += '.' + e.target.className.split(' ').join('.');
+                                        }}
+                                        }} else if (selectorType === 'XPATH') {{
+                                        const getXPath = (el) => {{
+                                            if (el.id) {{
+                                            return `//*[@id='${{el.id}}']`;
+                                            }}
+                                            if (el === document.body) {{
+                                            return '/html/body';
+                                            }}
+                                            let ix = 0;
+                                            const siblings = el.parentNode.childNodes;
+                                            for (let i = 0; i < siblings.length; i++) {{
+                                            const sibling = siblings[i];
+                                            if (sibling === el) {{
+                                                return getXPath(el.parentNode) + '/' + el.tagName.toLowerCase() + '[' + (ix + 1) + ']';
+                                            }}
+                                            if (sibling.nodeType === 1 && sibling.tagName === el.tagName) {{
+                                                ix++;
+                                            }}
+                                            }}
+                                        }};
+                                        selector = getXPath(e.target);
+                                        }}
+
+                                        window.parent.postMessage(
+                                        {{
+                                            type: 'SELECTOR_RESPONSE',
+                                            selector,
+                                            selectorType
+                                        }},
+                                        '*'
+                                        );
+
+                                        document.body.style.cursor = 'default';
+                                        document.removeEventListener('mouseover', null);
+                                        document.removeEventListener('mouseout', null);
+                                        document.removeEventListener('click', null);
+                                    }});
+                                    }}
+                                }});
+                                </script>
+                                """
+            # rendered_html = soup.prettify()
+            rendered_html = soup.prettify().replace("</body>", f"{injected_script}</body>")
+
+        elif tool == "httpx":
+            # Use HTTPX to fetch the page
+            import httpx
+            with httpx.Client() as client:
+                response = client.get(url)
+                response.raise_for_status()
+                rendered_html = response.text
+
+        elif tool == "requests_html":
+            # Use Requests-HTML to fetch the page
+            from requests_html import HTMLSession
+            session = HTMLSession()
+            response = session.get(url)
+            response.html.render()  # Render JavaScript
+            # Get the page source
+            injected_script = f"""
+                                <script>
+                                window.addEventListener('message', function(event) {{
+                                    if (event.data.action === 'initiateSelection') {{
+                                    const selectorType = event.data.selectorType;
+
+                                    document.body.style.cursor = 'crosshair';
+
+                                    document.addEventListener('mouseover', function(e) {{
+                                        e.target.style.outline = '2px solid red';
+                                    }});
+
+                                    document.addEventListener('mouseout', function(e) {{
+                                        e.target.style.outline = '';
+                                    }});
+
+                                    document.addEventListener('click', function(e) {{
+                                        e.preventDefault();
+                                        e.stopPropagation();
+
+                                        let selector = '';
+                                        if (selectorType === 'CSS_SELECTOR') {{
+                                        selector = e.target.tagName.toLowerCase();
+                                        if (e.target.id) {{
+                                            selector += '#' + e.target.id;
+                                        }}
+                                        if (e.target.className) {{
+                                            selector += '.' + e.target.className.split(' ').join('.');
+                                        }}
+                                        }} else if (selectorType === 'XPATH') {{
+                                        const getXPath = (el) => {{
+                                            if (el.id) {{
+                                            return `//*[@id='${{el.id}}']`;
+                                            }}
+                                            if (el === document.body) {{
+                                            return '/html/body';
+                                            }}
+                                            let ix = 0;
+                                            const siblings = el.parentNode.childNodes;
+                                            for (let i = 0; i < siblings.length; i++) {{
+                                            const sibling = siblings[i];
+                                            if (sibling === el) {{
+                                                return getXPath(el.parentNode) + '/' + el.tagName.toLowerCase() + '[' + (ix + 1) + ']';
+                                            }}
+                                            if (sibling.nodeType === 1 && sibling.tagName === el.tagName) {{
+                                                ix++;
+                                            }}
+                                            }}
+                                        }};
+                                        selector = getXPath(e.target);
+                                        }}
+
+                                        window.parent.postMessage(
+                                        {{
+                                            type: 'SELECTOR_RESPONSE',
+                                            selector,
+                                            selectorType
+                                        }},
+                                        '*'
+                                        );
+
+                                        document.body.style.cursor = 'default';
+                                        document.removeEventListener('mouseover', null);
+                                        document.removeEventListener('mouseout', null);
+                                        document.removeEventListener('click', null);
+                                    }});
+                                    }}
+                                }});
+                                </script>
+                                """
+            rendered_html = response.html.html.replace("</body>", f"{injected_script}</body>")
+        elif tool == "scrapy":
+            # Use Scrapy to fetch the page (simplified example)
+            from scrapy.http import HtmlResponse
+            response = requests.get(url)
+            response.raise_for_status()
+            # Get the page source
+            injected_script = f"""
+                                <script>
+                                window.addEventListener('message', function(event) {{
+                                    if (event.data.action === 'initiateSelection') {{
+                                    const selectorType = event.data.selectorType;
+
+                                    document.body.style.cursor = 'crosshair';
+
+                                    document.addEventListener('mouseover', function(e) {{
+                                        e.target.style.outline = '2px solid red';
+                                    }});
+
+                                    document.addEventListener('mouseout', function(e) {{
+                                        e.target.style.outline = '';
+                                    }});
+
+                                    document.addEventListener('click', function(e) {{
+                                        e.preventDefault();
+                                        e.stopPropagation();
+
+                                        let selector = '';
+                                        if (selectorType === 'CSS_SELECTOR') {{
+                                        selector = e.target.tagName.toLowerCase();
+                                        if (e.target.id) {{
+                                            selector += '#' + e.target.id;
+                                        }}
+                                        if (e.target.className) {{
+                                            selector += '.' + e.target.className.split(' ').join('.');
+                                        }}
+                                        }} else if (selectorType === 'XPATH') {{
+                                        const getXPath = (el) => {{
+                                            if (el.id) {{
+                                            return `//*[@id='${{el.id}}']`;
+                                            }}
+                                            if (el === document.body) {{
+                                            return '/html/body';
+                                            }}
+                                            let ix = 0;
+                                            const siblings = el.parentNode.childNodes;
+                                            for (let i = 0; i < siblings.length; i++) {{
+                                            const sibling = siblings[i];
+                                            if (sibling === el) {{
+                                                return getXPath(el.parentNode) + '/' + el.tagName.toLowerCase() + '[' + (ix + 1) + ']';
+                                            }}
+                                            if (sibling.nodeType === 1 && sibling.tagName === el.tagName) {{
+                                                ix++;
+                                            }}
+                                            }}
+                                        }};
+                                        selector = getXPath(e.target);
+                                        }}
+
+                                        window.parent.postMessage(
+                                        {{
+                                            type: 'SELECTOR_RESPONSE',
+                                            selector,
+                                            selectorType
+                                        }},
+                                        '*'
+                                        );
+
+                                        document.body.style.cursor = 'default';
+                                        document.removeEventListener('mouseover', null);
+                                        document.removeEventListener('mouseout', null);
+                                        document.removeEventListener('click', null);
+                                    }});
+                                    }}
+                                }});
+                                </script>
+                                """
+            rendered_html = HtmlResponse(url=url, body=response.content).body.decode()("</body>", f"{injected_script}</body>")
+
+        else:
+            return "Invalid tool selected", 400
+
         return Response(rendered_html, content_type="text/html")
 
     except Exception as e:
-        logging.error(f"Error proxying request: {e}")
+        logging.error(f"Error fetching page with {tool}: {e}")
         return str(e), 500
 
 
