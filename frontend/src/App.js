@@ -4,11 +4,13 @@ import "./App.css";
 function App() {
   const [url, setUrl] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
-  const [selectorType, setSelectorType] = useState("");
+  const [selectorType, setSelectorType] = useState(""); // State for selector type
   const [rows, setRows] = useState([]);
   const [currentRowIndex, setCurrentRowIndex] = useState(null);
   const [generatedCode, setGeneratedCode] = useState("");
   const iframeRef = useRef(null);
+
+  const projectName = "Test Project 1";
 
   useEffect(() => {
     const handleMessage = (event) => {
@@ -76,97 +78,78 @@ function App() {
       alert("Please enter a URL and add at least one element to generate code.");
       return;
     }
-  
+
     const scraperCode = `
-  from selenium import webdriver
-  from selenium.webdriver.common.by import By
-  from selenium.webdriver.chrome.service import Service
-  from selenium.webdriver.chrome.options import Options
-  
-  # Configure Selenium WebDriver
-  chrome_options = Options()
-  chrome_options.add_argument("--headless")  # Run in headless mode
-  chrome_options.add_argument("--no-sandbox")
-  chrome_options.add_argument("--disable-dev-shm-usage")
-  service = Service("path/to/chromedriver")  # Update this path to your ChromeDriver
-  
-  driver = webdriver.Chrome(service=service, options=chrome_options)
-  
-  try:
-      # Load the URL
-      url = "${url}"
-      driver.get(url)
-  
-      # Wait for the page to load
-      driver.implicitly_wait(10)  # Adjust wait time if needed
-  
-      # Extract data using selectors
-      data = {}
-      ${rows
-        .map((row) => {
-          return `
-      elements = driver.find_elements(By.CSS_SELECTOR, "${row.selector}")
-      data["${row.name}"] = [el.text for el in elements]`;
-        })
-        .join("\n")}
-  
-      # Print extracted data
-      for key, value in data.items():
-          print(f"{key}: {value}")
-  
-  finally:
-      driver.quit()
-  `;
-  
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+
+# Configure Selenium WebDriver
+chrome_options = Options()
+chrome_options.add_argument("--headless")  # Run in headless mode
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-dev-shm-usage")
+
+driver = webdriver.Chrome(options=chrome_options)
+
+try:
+    # Load the URL
+    url = "${url}"
+    driver.get(url)
+
+    # Wait for the page to load
+    driver.implicitly_wait(10)  # Adjust wait time if needed
+
+    # Extract data using selectors
+    data = {}
+    ${rows.map(row => `
+    elements = driver.find_elements(By.${selectorType.toUpperCase()}, "${row.selector}")
+    data["${row.name}"] = [el.text for el in elements]`).join("\n")}
+
+    # Print extracted data
+    for key, value in data.items():
+        print(f"{key}: {value}")
+
+finally:
+    driver.quit()
+`;
+
     setGeneratedCode(scraperCode);
   };
-  
-  
 
-  const handlePreviewToTableMove = (e) => {
-    const rightPanel = document.querySelector(".right-panel");
-    const totalHeight = rightPanel.offsetHeight;
-    const previewHeight = (e.clientY / totalHeight) * 100;
-    const tableHeight = 100 - previewHeight - 1;
-
-    if (previewHeight < 10 || tableHeight < 10) return;
-
-    rightPanel.style.gridTemplateRows = `${previewHeight}% 1% auto`;
-  };
-
-  const handleTableToCodeMove = (e) => {
-    const rightPanel = document.querySelector(".right-panel");
-    const totalHeight = rightPanel.offsetHeight;
-    const tableContainer = document.querySelector(".table-container");
-    const generatedCode = document.querySelector(".generated-code");
-    const tableHeight = (e.clientY / totalHeight) * 100;
-    const codeHeight = 100 - tableHeight - 1;
-
-    if (tableHeight < 10 || codeHeight < 10) return;
-
-    tableContainer.style.height = `${tableHeight}%`;
-    generatedCode.style.height = `${codeHeight}%`;
-  };
-
-  const handleMouseUp = () => {
-    window.removeEventListener("mousemove", handlePreviewToTableMove);
-    window.removeEventListener("mousemove", handleTableToCodeMove);
-    window.removeEventListener("mouseup", handleMouseUp);
-  };
-
-  const handleMouseDown = (type) => {
-    if (type === "previewToTable") {
-      window.addEventListener("mousemove", handlePreviewToTableMove);
-    } else if (type === "tableToCode") {
-      window.addEventListener("mousemove", handleTableToCodeMove);
+  const saveToFile = () => {
+    if (!generatedCode) {
+      alert("No code to save! Generate Python code first.");
+      return;
     }
-    window.addEventListener("mouseup", handleMouseUp);
+    const blob = new Blob([generatedCode], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "scraper.py"; // Default filename
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const copyToClipboard = () => {
+    if (!generatedCode) {
+      alert("No code to copy! Generate Python code first.");
+      return;
+    }
+    navigator.clipboard.writeText(generatedCode).then(() => {
+      alert("Code copied to clipboard!");
+    }).catch(() => {
+      alert("Failed to copy code to clipboard.");
+    });
   };
 
   return (
     <div className="container">
       <header className="header">
-        <h1>Visual Scraper with Adjustable Layout</h1>
+        <div className="header-left">
+          <h1>Visual Scraper</h1>
+          <p>Project Name: <strong>{projectName}</strong></p>
+        </div>
       </header>
       <div className="content">
         <div className="left-panel">
@@ -177,26 +160,21 @@ function App() {
             onChange={(e) => setUrl(e.target.value)}
             style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
           />
-          <button onClick={handlePreview} style={{ width: "100%", padding: "10px", marginBottom: "10px" }}>
+          <button
+            onClick={handlePreview}
+            style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
+          >
             Preview Website
           </button>
+
+          {/* Selector Type Section */}
+          <h3>Select Selector Type</h3>
           <div>
-            <h3>Select Selector Type</h3>
             <label>
               <input
                 type="radio"
                 name="selectorType"
-                value="xpath"
-                onChange={(e) => setSelectorType(e.target.value)}
-              />
-              XPath
-            </label>
-            <br />
-            <label>
-              <input
-                type="radio"
-                name="selectorType"
-                value="css"
+                value="CSS_SELECTOR"
                 onChange={(e) => setSelectorType(e.target.value)}
               />
               CSS Selector
@@ -206,23 +184,95 @@ function App() {
               <input
                 type="radio"
                 name="selectorType"
-                value="attribute"
+                value="XPATH"
                 onChange={(e) => setSelectorType(e.target.value)}
               />
-              Attribute Selector
+              XPath
+            </label>
+            <br />
+            <label>
+              <input
+                type="radio"
+                name="selectorType"
+                value="CLASS_NAME"
+                onChange={(e) => setSelectorType(e.target.value)}
+              />
+              Class Name
+            </label>
+            <br />
+            <label>
+              <input
+                type="radio"
+                name="selectorType"
+                value="ID"
+                onChange={(e) => setSelectorType(e.target.value)}
+              />
+              ID
+            </label>
+            <br />
+            <label>
+              <input
+                type="radio"
+                name="selectorType"
+                value="TAG_NAME"
+                onChange={(e) => setSelectorType(e.target.value)}
+              />
+              Tag Name
             </label>
           </div>
+
           <button
             onClick={addRow}
-            style={{ width: "100%", padding: "10px", marginTop: "10px" }}
+            style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
           >
             Add Row
           </button>
           <button
             onClick={generatePythonCode}
-            style={{ width: "100%", padding: "10px", marginTop: "10px" }}
+            style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
           >
             Generate Python Code
+          </button>
+          <button
+            onClick={saveToFile}
+            style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
+          >
+            Save Python File
+          </button>
+          <button
+            onClick={copyToClipboard}
+            style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
+          >
+            Copy to Clipboard
+          </button>
+          <button
+            style={{ width: "100%", padding: "10px", marginTop: "10px" }}
+            disabled
+          >
+            Schedule Trigger
+          </button>
+          <button
+            style={{ width: "100%", padding: "10px", marginTop: "10px" }}
+            disabled
+          >
+            Run Now
+          </button>
+          <button
+            style={{ width: "100%", padding: "10px", marginTop: "10px" }}
+            disabled
+          >
+            Logs
+          </button>
+          <button
+            style={{ width: "100%", padding: "10px", marginTop: "10px" }}
+            disabled
+          >
+            Connect to Database
+          </button>
+          <button
+            style={{ width: "100%", padding: "10px", marginTop: "10px" }}
+          >
+            Logout
           </button>
         </div>
         <div className="right-panel">
@@ -232,14 +282,12 @@ function App() {
               <iframe
                 src={previewUrl}
                 ref={iframeRef}
-                onLoad={() => console.log('Preview loaded')}
                 title="Website Preview"
                 style={{ width: "100%", height: "100%" }}
                 allow="clipboard-read; clipboard-write"
               ></iframe>
             )}
           </div>
-          <div className="divider" onMouseDown={() => handleMouseDown("previewToTable")}></div>
           <div className="table-container">
             <h2>Element Table</h2>
             <table>
@@ -270,7 +318,6 @@ function App() {
               </tbody>
             </table>
           </div>
-          <div className="divider" onMouseDown={() => handleMouseDown("tableToCode")}></div>
           <div className="generated-code">
             <h2>Generated Python Code</h2>
             <pre>{generatedCode || "Click 'Generate Python Code' to see the output here."}</pre>

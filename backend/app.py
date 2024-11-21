@@ -3,9 +3,10 @@ from flask_cors import CORS
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import logging
 from fake_useragent import UserAgent
-from selenium.webdriver.support.ui import WebDriverWait
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})  # Adjust CORS as needed
@@ -19,6 +20,7 @@ def home():
 @app.route('/proxy', methods=['GET'])
 def proxy():
     url = request.args.get('url')
+    selector_type = request.args.get('selectorType', 'CSS_SELECTOR')  # Default to CSS_SELECTOR
     if not url:
         return "URL parameter is missing", 400
 
@@ -26,6 +28,7 @@ def proxy():
         # Configure Selenium WebDriver
         chrome_options = Options()
         chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--headless")  # Run in headless mode
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--window-size=1920,1080")
@@ -33,12 +36,10 @@ def proxy():
         chrome_options.add_experimental_option("useAutomationExtension", False)
 
         # Add user-agent
-        user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.110 Safari/537.36"
+        user_agent = UserAgent().random  # Random user agent
         chrome_options.add_argument(f"user-agent={user_agent}")
 
         driver = webdriver.Chrome(options=chrome_options)
-
-        # Load the page
         driver.get(url)
 
         # Wait until the page is fully loaded
@@ -46,78 +47,98 @@ def proxy():
             lambda d: d.execute_script("return document.readyState") == "complete"
         )
 
-        # Inject JavaScript into the HTML
-        # Inject JavaScript into the rendered HTML
-        injected_script = """
+        # Inject JavaScript into the page
+        injected_script = f"""
         <script>
-            console.log('Injected script is running.');
+            console.log('Injected script is running with selectorType: {selector_type}');
 
-            window.addEventListener('message', function(event) {
-                console.log('Message received:', event.data);
-
-                if (event.data.action === 'initiateSelection') {
-                    console.log('Selection mode activated.');
+            window.addEventListener('message', function(event) {{
+                if (event.data.action === 'initiateSelection') {{
                     document.body.style.cursor = 'crosshair';
 
-                    document.addEventListener('mouseover', function(e) {
+                    document.addEventListener('mouseover', function(e) {{
                         e.target.style.outline = '2px solid red';
-                    });
+                    }});
 
-                    document.addEventListener('mouseout', function(e) {
+                    document.addEventListener('mouseout', function(e) {{
                         e.target.style.outline = '';
-                    });
+                    }});
 
-                    document.addEventListener('click', function(e) {
+                    document.addEventListener('click', function(e) {{
                         e.preventDefault();
                         e.stopPropagation();
 
-                        const getDomPath = (el) => {
+                        const getSelector = (el) => {{
                             if (!el) return '';
-                            let stack = [];
-                            while (el.parentNode !== null) {
-                                let sibCount = 0;
-                                let sibIndex = 0;
-                                for (let i = 0; i < el.parentNode.childNodes.length; i++) {
-                                    let sib = el.parentNode.childNodes[i];
-                                    if (sib.nodeName === el.nodeName) {
-                                        if (sib === el) sibIndex = sibCount;
-                                        sibCount++;
-                                    }
-                                }
-                                let nodeName = el.nodeName.toLowerCase();
-                                if (el.id) {
-                                    stack.unshift(`${nodeName}#${el.id}`);
-                                    break;
-                                } else if (sibCount > 1) {
-                                    stack.unshift(`${nodeName}:nth-of-type(${sibIndex + 1})`);
-                                } else {
-                                    stack.unshift(nodeName);
-                                }
-                                el = el.parentNode;
-                            }
-                            return stack.join(' > ');
-                        };
+                            if ("{selector_type}" === "CSS_SELECTOR") {{
+                                let stack = [];
+                                while (el.parentNode !== null) {{
+                                    let sibCount = 0;
+                                    let sibIndex = 0;
+                                    for (let i = 0; i < el.parentNode.childNodes.length; i++) {{
+                                        let sib = el.parentNode.childNodes[i];
+                                        if (sib.nodeName === el.nodeName) {{
+                                            if (sib === el) sibIndex = sibCount;
+                                            sibCount++;
+                                        }}
+                                    }}
+                                    let nodeName = el.nodeName.toLowerCase();
+                                    if (el.id) {{
+                                        stack.unshift(`${{nodeName}}#${{el.id}}`);
+                                        break;
+                                    }} else if (sibCount > 1) {{
+                                        stack.unshift(`${{nodeName}}:nth-of-type(${{sibIndex + 1}})`);
+                                    }} else {{
+                                        stack.unshift(nodeName);
+                                    }}
+                                    el = el.parentNode;
+                                }}
+                                return stack.join(' > ');
+                            }} else if ("{selector_type}" === "CLASS_NAME") {{
+                                return el.className || '';
+                            }} else if ("{selector_type}" === "ID") {{
+                                return el.id || '';
+                            }} else if ("{selector_type}" === "TAG_NAME") {{
+                                return el.tagName || '';
+                            }} else if ("{selector_type}" === "XPATH") {{
+                                const getXPath = (el) => {{
+                                    if (el.id !== '') {{
+                                        return 'id("' + el.id + '")';
+                                    }}
+                                    if (el === document.body) {{
+                                        return el.tagName.toLowerCase();
+                                    }}
+                                    let ix = 0;
+                                    const siblings = el.parentNode.childNodes;
+                                    for (let i = 0; i < siblings.length; i++) {{
+                                        const sibling = siblings[i];
+                                        if (sibling === el) {{
+                                            return getXPath(el.parentNode) + '/' + el.tagName.toLowerCase() + '[' + (ix + 1) + ']';
+                                        }}
+                                        if (sibling.nodeType === 1 && sibling.tagName === el.tagName) {{
+                                            ix++;
+                                        }}
+                                    }}
+                                }};
+                                return getXPath(el);
+                            }}
+                        }};
 
-                        const selector = getDomPath(e.target);
+                        const selector = getSelector(e.target);
                         console.log('Computed selector:', selector);
 
-                        window.parent.postMessage({ type: 'SELECTOR_RESPONSE', selector }, '*');
+                        window.parent.postMessage({{ type: 'SELECTOR_RESPONSE', selector }}, '*');
                         document.body.style.cursor = 'default';
-                    });
-                }
-            });
+                    }});
+                }}
+            }});
         </script>
         """
 
-        # Replace </body> with the injected JavaScript
+        # Inject the script into the page
         rendered_html = driver.page_source.replace("</body>", f"{injected_script}</body>")
-
-
-        # Inject the script into the rendered HTML
-        modified_html = rendered_html.replace("</body>", f"{injected_script}</body>")
-
         driver.quit()
-        return Response(modified_html, content_type="text/html")
+        return Response(rendered_html, content_type="text/html")
 
     except Exception as e:
         logging.error(f"Error proxying request: {e}")
@@ -128,7 +149,6 @@ def proxy():
 def scrape():
     data = request.get_json()
     url = data.get('url')
-
     selector = data.get('selector')
 
     if not url or not selector:
@@ -144,19 +164,19 @@ def scrape():
 
         # Load the page
         driver.get(url)
-        driver.implicitly_wait(10)  # Wait for the element to load
+        driver.implicitly_wait(10)  # Implicit wait for elements to load
 
-                # Wait for the document.readyState to be 'complete'
+        # Wait until the document is fully loaded
         WebDriverWait(driver, 30).until(
             lambda d: d.execute_script("return document.readyState") == "complete"
         )
         logging.info("Page fully loaded.")
 
-        # Wait for a specific element that indicates full content has loaded
+        # Wait for the specified selector to be present
         WebDriverWait(driver, 30).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "body"))  # Adjust selector if needed
+            EC.presence_of_element_located((By.CSS_SELECTOR, selector))
         )
-        logging.info("Page content loaded successfully.")
+        logging.info(f"Selector {selector} found.")
 
         # Find elements matching the selector
         elements = driver.find_elements(By.CSS_SELECTOR, selector)
